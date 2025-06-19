@@ -1,0 +1,168 @@
+# Production values for Minecraft Server
+# Copy this file and customize for your production environment
+
+# Resource configuration for production workload
+resources:
+  limits:
+    cpu: 4000m
+    memory: 8Gi
+  requests:
+    cpu: 2000m
+    memory: 4Gi
+
+# Persistent storage configuration
+persistence:
+  enabled: true
+  size: 50Gi
+  # storageClass: "fast-ssd"  # Uncomment for specific storage class
+  # annotations:
+  #   volume.beta.kubernetes.io/storage-class: "premium"
+
+# Service configuration for production
+service:
+  type: LoadBalancer
+  port: 25565
+  annotations:
+    # AWS ELB annotations (uncomment for AWS)
+    # service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    # service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+    
+    # GCP Load Balancer annotations (uncomment for GCP)
+    # cloud.google.com/load-balancer-type: "External"
+    
+    # Azure Load Balancer annotations (uncomment for Azure)
+    # service.beta.kubernetes.io/azure-load-balancer-resource-group: "my-resource-group"
+
+# RCON configuration
+rcon:
+  enabled: true
+  port: 25575
+  password: "change-this-secure-password"  # CHANGE THIS!
+  service:
+    enabled: false  # Set to true if you need separate RCON service
+    type: ClusterIP
+    port: 25575
+
+# Minecraft server configuration
+minecraft:
+  serverProperties:
+    # Server identification
+    motd: "My Production Minecraft Server"
+    server-name: "ProductionMC"
+    
+    # Game settings
+    difficulty: "normal"
+    gamemode: "survival"
+    hardcore: false
+    
+    # Player limits
+    max-players: 50
+    max-world-size: 29999984
+    
+    # World generation
+    level-type: "minecraft:normal"
+    generate-structures: true
+    spawn-monsters: true
+    spawn-animals: true
+    spawn-npcs: true
+    
+    # Security settings
+    white-list: true
+    online-mode: true
+    enforce-whitelist: true
+    
+    # PvP and protection
+    pvp: true
+    spawn-protection: 32
+    
+    # Network settings
+    server-port: 25565
+    query.port: 25565
+    enable-query: true
+    
+    # Performance settings
+    view-distance: 10
+    simulation-distance: 10
+    max-tick-time: 60000
+    
+    # Resource pack
+    # resource-pack: "https://example.com/resourcepack.zip"
+    # resource-pack-sha1: "sha1-hash-here"
+    # require-resource-pack: false
+
+  # Environment variables
+  env:
+    # Custom Java flags for production
+    JAVA_FLAGS: "-Xmx6G -Xms3G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1"
+
+# Pod disruption budget for high availability
+# Note: Disabled for Minecraft servers as they should only run as single instances
+# podDisruptionBudget:
+#   enabled: false
+
+# Monitoring and health checks
+probes:
+  readiness:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  liveness:
+    enabled: true
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+    successThreshold: 1
+
+# Security context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsGroup: 1000
+
+# Node selection (uncomment and customize if needed)
+# nodeSelector:
+#   kubernetes.io/instance-type: "c5.2xlarge"
+#   topology.kubernetes.io/zone: "us-west-2a"
+
+# Tolerations (uncomment if using tainted nodes)
+# tolerations:
+#   - key: "dedicated"
+#     operator: "Equal"
+#     value: "minecraft"
+#     effect: "NoSchedule"
+
+# Affinity rules (uncomment for advanced scheduling)
+# affinity:
+#   nodeAffinity:
+#     requiredDuringSchedulingIgnoredDuringExecution:
+#       nodeSelectorTerms:
+#       - matchExpressions:
+#         - key: kubernetes.io/instance-type
+#           operator: In
+#           values:
+#           - c5.2xlarge
+#           - c5.4xlarge
+#   podAntiAffinity:
+#     preferredDuringSchedulingIgnoredDuringExecution:
+#     - weight: 100
+#       podAffinityTerm:
+#         labelSelector:
+#           matchExpressions:
+#           - key: app.kubernetes.io/name
+#             operator: In
+#             values:
+#             - minecraft-server
+#         topologyKey: kubernetes.io/hostname

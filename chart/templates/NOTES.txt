@@ -1,0 +1,45 @@
+1. Get the application URL by running these commands:
+{{- if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "minecraft-server.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo $NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "minecraft-server.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "minecraft-server.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo $SERVICE_IP:{{ .Values.service.port }}
+{{- else if contains "ClusterIP" .Values.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "minecraft-server.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+{{- end }}
+
+2. Connect to your Minecraft server:
+   - Server Address: [IP from step 1]:{{ .Values.service.port }}
+   - Version: Minecraft {{ .Chart.AppVersion }} (Fabric)
+
+{{- if .Values.rcon.enabled }}
+3. Connect to RCON (if enabled):
+   - RCON Password: {{ include "minecraft-server.rconPassword" . }}
+   {{- if .Values.rcon.service.enabled }}
+   - RCON Address: [RCON Service IP]:{{ .Values.rcon.service.port }}
+   {{- else }}
+   - RCON is available on port {{ .Values.rcon.port }} of the main service
+   {{- end }}
+
+   To test RCON connection:
+   kubectl exec -it deployment/{{ include "minecraft-server.fullname" . }} -- rcon-cli -H localhost -P {{ .Values.rcon.port }} -p {{ include "minecraft-server.rconPassword" . }} list
+{{- end }}
+
+4. View server logs:
+   kubectl logs -f deployment/{{ include "minecraft-server.fullname" . }}
+
+5. Access server console via RCON:
+   kubectl exec -it deployment/{{ include "minecraft-server.fullname" . }} -- rcon-cli -H localhost -P {{ .Values.rcon.port }} -p {{ include "minecraft-server.rconPassword" . }}
+
+{{- if .Values.persistence.enabled }}
+6. Persistent data is stored in: {{ include "minecraft-server.fullname" . }}-data PVC
+{{- else }}
+6. WARNING: Persistence is disabled. Server data will be lost when the pod restarts!
+{{- end }}

@@ -1,0 +1,95 @@
+# Development values for Minecraft Server
+# This configuration is optimized for development and testing
+
+# Minimal resource configuration for development
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Smaller persistent storage for development
+persistence:
+  enabled: true
+  size: 5Gi
+
+# NodePort service for easy local access
+service:
+  type: NodePort
+  port: 25565
+
+# RCON configuration
+rcon:
+  enabled: true
+  port: 25575
+  password: "dev123"  # Simple password for development
+
+# Development-friendly Minecraft settings
+minecraft:
+  serverProperties:
+    # Server identification
+    motd: "Development Minecraft Server"
+    server-name: "DevMC"
+    
+    # Easy game settings for development
+    difficulty: "peaceful"
+    gamemode: "creative"
+    hardcore: false
+    
+    # Small player limit
+    max-players: 10
+    
+    # Reduced view distance for performance
+    view-distance: 6
+    simulation-distance: 6
+    
+    # Disable authentication for easier testing
+    online-mode: false
+    white-list: false
+    enforce-whitelist: false
+    
+    # Enable cheats and commands
+    enable-command-block: true
+    op-permission-level: 4
+    
+    # PvP disabled for peaceful development
+    pvp: false
+    spawn-protection: 0
+    
+    # Quick world generation
+    generate-structures: false
+    spawn-monsters: false
+    spawn-animals: true
+    spawn-npcs: true
+
+  # Environment variables for development
+  env:
+    # Lighter Java flags for development
+    JAVA_FLAGS: "-Xmx1G -Xms512M -XX:+UseG1GC"
+
+# Faster startup probes for development
+probes:
+  readiness:
+    enabled: true
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+  liveness:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+
+# Disable production features for development
+# Note: PDB and autoscaling are not applicable for Minecraft servers
+
+# Allow scheduling on any node
+nodeSelector: {}
+tolerations: []
+affinity: {}

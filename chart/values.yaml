@@ -1,0 +1,110 @@
+# Default values for minecraft-server.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository: ghcr.io/biftin/minecraft-kube
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: LoadBalancer
+  port: 25565
+  targetPort: 25565
+  # For cloud providers, you might want to specify annotations
+  annotations: {}
+    # service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    # service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+
+rcon:
+  enabled: true
+  port: 25575
+  password: "minecraft"
+  # Set to true to create a separate service for RCON
+  service:
+    enabled: false
+    type: ClusterIP
+    port: 25575
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+persistence:
+  enabled: true
+  # storageClass: "-"
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+  # annotations: {}
+
+# Minecraft server configuration
+minecraft:
+  # Environment variables to pass to the container
+  env: {}
+    # Custom Java flags (optional)
+    # JAVA_FLAGS: "-Xmx2G -Xms1G"
+    
+    # RCON password (will be set from rcon.password if not specified)
+    # RCON_PASSWORD: "minecraft"
+  
+  # Server properties that will be applied to server.properties
+  # These will be merged with the defaults from the container
+  serverProperties: {}
+    # server-name: "My Minecraft Server"
+    # motd: "Welcome to my Minecraft server!"
+    # difficulty: "normal"
+    # gamemode: "survival"
+    # max-players: 20
+    # spawn-protection: 16
+    # white-list: false
+    # online-mode: true
+    # pvp: true
+
+# Readiness and liveness probes
+probes:
+  readiness:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  liveness:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+    successThreshold: 1
