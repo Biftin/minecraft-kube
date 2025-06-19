@@ -125,12 +125,12 @@ securityContext:
     - ALL
   readOnlyRootFilesystem: false
   runAsNonRoot: true
-  runAsUser: 1000
+  runAsUser: 1337
 
 podSecurityContext:
-  fsGroup: 1000
-  runAsUser: 1000
-  runAsGroup: 1000
+  fsGroup: 1337
+  runAsUser: 1337
+  runAsGroup: 1337
 
 # Node selection (uncomment and customize if needed)
 # nodeSelector:
