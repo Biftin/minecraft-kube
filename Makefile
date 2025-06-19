@@ -34,11 +34,14 @@ help: ## Show this help message
 	@echo "  Image Tag: $(IMAGE_TAG)"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  build-multi-arch     Build multi-architecture container image"
-	@echo "  build                Build container image for current architecture"
-	@echo "  clean                Remove local container images"
-	@echo "  helm-package         Package the Helm chart"
-	@echo "  helm-update-versions Update Helm chart versions to match build versions"
+	@echo "  build-multi-arch       Build multi-architecture container image"
+	@echo "  build                  Build container image for current architecture"
+	@echo "  clean                  Remove local container images"
+	@echo "  clean-manifests        Remove local manifests (use if you get manifest conflicts)"
+	@echo "  clean-all              Remove all local images and manifests"
+	@echo "  inspect-image          Inspect the built image manifest"
+	@echo "  helm-package           Package the Helm chart"
+	@echo "  helm-update-versions   Update Helm chart versions to match build versions"
 	@echo ""
 	@echo "Environment variables:"
 	@echo "  IMAGE_NAME               Container image name (default: $(IMAGE_NAME))"
@@ -50,11 +53,25 @@ help: ## Show this help message
 	@echo "Examples:"
 	@echo "  make build MINECRAFT_VERSION=1.21.4 FABRIC_VERSION=0.16.10"
 	@echo "  make build-multi-arch IMAGE_TAG=1.21.6-fabric-0.16.14"
+	@echo "  make inspect-image  # Check if image is a proper manifest list"
+	@echo ""
+	@echo "Troubleshooting:"
+	@echo "  If you get 'image is not a manifest list' error:"
+	@echo "  1. Use 'make build' for single-arch local builds"
+	@echo "  2. Use 'make build-local-multi-arch' for local multi-arch testing"
+	@echo "  3. Use 'make inspect-image' to check manifest format"
+	@echo ""
+	@echo "  If you get 'name is already in use' error:"
+	@echo "  1. Use 'make clean-manifests' to remove conflicting manifests"
+	@echo "  2. Use 'make clean-all' to remove everything and start fresh"
 
 build-multi-arch: ## Build multi-architecture container image
 	@echo "Building multi-architecture container image using $(ENGINE_NAME)..."
 	@echo "Minecraft: $(MINECRAFT_VERSION), Fabric: $(FABRIC_VERSION), Tag: $(IMAGE_TAG)"
 ifeq ($(ENGINE_NAME),docker)
+	@echo "Checking Docker buildx setup..."
+	@$(CONTAINER_ENGINE) buildx version || (echo "Error: Docker buildx not available" && exit 1)
+	@$(CONTAINER_ENGINE) buildx inspect --builder default || $(CONTAINER_ENGINE) buildx create --use --name minecraft-builder
 	$(CONTAINER_ENGINE) buildx build \
 		--platform $(ARCH_x86_64),$(ARCH_aarch64) \
 		--build-arg MINECRAFT_VERSION=$(MINECRAFT_VERSION) \
@@ -64,14 +81,37 @@ ifeq ($(ENGINE_NAME),docker)
 		-t $(IMAGE_NAME):$(IMAGE_TAG_LATEST) \
 		--push .
 else
+	@echo "Building separate images for each architecture with $(ENGINE_NAME)..."
+	# Clean up any existing manifests first
+	-$(CONTAINER_ENGINE) manifest rm $(IMAGE_NAME):$(IMAGE_TAG) || true
+	-$(CONTAINER_ENGINE) manifest rm $(IMAGE_NAME):$(IMAGE_TAG_LATEST) || true
+	# Create manifest list
+	@echo "Creating manifest list for $(IMAGE_NAME):$(IMAGE_TAG) and $(IMAGE_NAME):$(IMAGE_TAG_LATEST)..."
+	$(CONTAINER_ENGINE) manifest create $(IMAGE_NAME):$(IMAGE_TAG)
+	$(CONTAINER_ENGINE) manifest create $(IMAGE_NAME):$(IMAGE_TAG_LATEST)
+	# Ensure we have the latest images before building
+	# Build images for each architecture
+	@echo "Building image for $(ARCH_x86_64)..."
 	$(CONTAINER_ENGINE) build \
-		--platform $(ARCH_x86_64),$(ARCH_aarch64) \
+		--platform $(ARCH_x86_64) \
+		--manifest $(IMAGE_NAME):$(IMAGE_TAG) \
 		--build-arg MINECRAFT_VERSION=$(MINECRAFT_VERSION) \
 		--build-arg FABRIC_VERSION=$(FABRIC_VERSION) \
 		--build-arg FABRIC_INSTALLER_VERSION=$(FABRIC_INSTALLER_VERSION) \
-		-t $(IMAGE_NAME):$(IMAGE_TAG) \
-		-t $(IMAGE_NAME):$(IMAGE_TAG_LATEST) \
-		--manifest $(IMAGE_NAME):$(IMAGE_TAG) .
+		-t $(IMAGE_NAME):$(IMAGE_TAG)-x86_64 .
+	@echo "Building image for $(ARCH_aarch64)..."
+	$(CONTAINER_ENGINE) build \
+		--platform $(ARCH_aarch64) \
+		--manifest $(IMAGE_NAME):$(IMAGE_TAG) \
+		--build-arg MINECRAFT_VERSION=$(MINECRAFT_VERSION) \
+		--build-arg FABRIC_VERSION=$(FABRIC_VERSION) \
+		--build-arg FABRIC_INSTALLER_VERSION=$(FABRIC_INSTALLER_VERSION) \
+		-t $(IMAGE_NAME):$(IMAGE_TAG)-aarch64 .
+	$(CONTAINER_ENGINE) manifest add $(IMAGE_NAME):$(IMAGE_TAG) $(IMAGE_NAME):$(IMAGE_TAG)-x86_64
+	$(CONTAINER_ENGINE) manifest add $(IMAGE_NAME):$(IMAGE_TAG) $(IMAGE_NAME):$(IMAGE_TAG)-aarch64
+	$(CONTAINER_ENGINE) manifest add $(IMAGE_NAME):$(IMAGE_TAG_LATEST) $(IMAGE_NAME):$(IMAGE_TAG)-x86_64
+	$(CONTAINER_ENGINE) manifest add $(IMAGE_NAME):$(IMAGE_TAG_LATEST) $(IMAGE_NAME):$(IMAGE_TAG)-aarch64
+	@echo "Pushing manifest list for $(IMAGE_NAME):$(IMAGE_TAG) and $(IMAGE_NAME):$(IMAGE_TAG_LATEST)..."
 	$(CONTAINER_ENGINE) manifest push $(IMAGE_NAME):$(IMAGE_TAG)
 	$(CONTAINER_ENGINE) manifest push $(IMAGE_NAME):$(IMAGE_TAG_LATEST)
 endif
@@ -90,6 +130,17 @@ clean: ## Remove local container images
 	@echo "Removing local container images using $(ENGINE_NAME)..."
 	-$(CONTAINER_ENGINE) rmi $(IMAGE_NAME):$(IMAGE_TAG)
 	-$(CONTAINER_ENGINE) rmi $(IMAGE_NAME):$(IMAGE_TAG_LATEST)
+
+clean-manifests: ## Remove local manifests (use if you get manifest conflicts)
+	@echo "Removing local manifests using $(ENGINE_NAME)..."
+	-$(CONTAINER_ENGINE) manifest rm $(IMAGE_NAME):$(IMAGE_TAG) || true
+	-$(CONTAINER_ENGINE) manifest rm $(IMAGE_NAME):$(IMAGE_TAG_LATEST) || true
+
+clean-all: clean clean-manifests ## Remove all local images and manifests
+
+inspect-image: ## Inspect the built image manifest
+	@echo "Inspecting image manifest for $(IMAGE_NAME):$(IMAGE_TAG)"
+	@$(CONTAINER_ENGINE) manifest inspect $(IMAGE_NAME):$(IMAGE_TAG) || echo "Failed to inspect manifest - image may not be a manifest list"
 
 helm-update-versions: ## Update Helm chart versions to match build versions
 	@echo "Updating Helm chart versions..."
